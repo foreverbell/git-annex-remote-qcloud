@@ -44,7 +44,8 @@ class authorizatize(object):
 
 class qcloud_cos(object):
   api_base = 'http://web.file.myqcloud.com/files/v1/'
-  timeout = 60
+  expire = 300 # signature expire time = 5 minutes
+  timeout = 10 # http connection timeout = 10 seconds
 
   def __init__(self, app_id, secret_id, secret_key, bucket):
     self.app_id = str(app_id)
@@ -89,7 +90,7 @@ class qcloud_cos(object):
 
   def __stat(self, auth, server_path):
     url = self.mk_url(server_path)
-    signature = auth.sign_more(qcloud_cos.timeout)
+    signature = auth.sign_more(qcloud_cos.expire)
     return self.send('GET', url, 
         headers=self.mk_headers(signature), 
         params={'op': 'stat'},
@@ -101,7 +102,7 @@ class qcloud_cos(object):
     assert os.path.exists(local_path), 'file not exists'
     server_path = urllib.quote(server_path)
     url = self.mk_url(server_path)
-    signature = auth.sign_more(qcloud_cos.timeout)
+    signature = auth.sign_more(qcloud_cos.expire)
     self.send('POST', url, 
         headers=self.mk_headers(signature, False), 
         files={'op': 'upload', 'filecontent': open(local_path, 'rb'), 'sha': self.sha1file(local_path)},
@@ -111,7 +112,7 @@ class qcloud_cos(object):
     auth = authorizatize(self.app_id, self.secret_id, self.secret_key, self.bucket)
     server_path = urllib.quote(server_path)
     response = self.__stat(auth, server_path)
-    access_url = response.json()['data']['access_url'] + '?sign=' + auth.sign_more(qcloud_cos.timeout)
+    access_url = response.json()['data']['access_url'] + '?sign=' + auth.sign_more(qcloud_cos.expire)
     urllib.urlretrieve(access_url, local_path)
     
   def present(self, server_path):
@@ -121,7 +122,7 @@ class qcloud_cos(object):
     try:
       response = self.__stat(auth, server_path)
     except COSException as e:
-      if e.code != -166: # ERROR_CMD_COS_INDEX_ERROR
+      if e.code != -166: # ERROR_CMD_COS_INDEX_ERROR = -166
         raise
       else:
         is_present = False
@@ -225,10 +226,9 @@ class qcloud_git_annex_remote(object):
     
   def main(self):
     self.send('VERSION 1')
-    # TODO: fix weired read bug
     while True:
       line = sys.stdin.readline()
-      if sys.stdin.closed:
+      if not line:
         break
       splices = line.split()
       cmd = splices[0].lower()
