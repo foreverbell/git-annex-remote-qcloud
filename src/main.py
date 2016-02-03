@@ -97,6 +97,7 @@ class qcloud_cos(object):
 
   def upload(self, local_path, server_path):
     auth = authorizatize(self.app_id, self.secret_id, self.secret_key, self.bucket)
+    # TODO: raise
     assert os.path.exists(local_path), 'file not exists'
     server_path = urllib.quote(server_path)
     url = self.mk_url(server_path)
@@ -164,10 +165,10 @@ class qcloud_git_annex_remote(object):
     sys.stdout.flush()
 
   def debug(self, *args):
-    self.send("DEBUG", *args)
+    self.send('DEBUG', *args)
 
   def dirhash(self, key):
-    self.send("DIRHASH", key)
+    self.send('DIRHASH', key)
     response = sys.stdin.readline().strip().split()
     assert len(response) == 2 and response[0] == 'VALUE', 'unknown response to DIRHASH'
     return response[1]
@@ -193,6 +194,7 @@ class qcloud_git_annex_remote(object):
   @report()
   def initremote(self):
     self.init_qcloud_cos()
+    # TODO: do some stuffs like create bucket
 
   @report()
   def prepare(self):
