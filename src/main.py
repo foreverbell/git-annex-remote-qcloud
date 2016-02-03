@@ -34,7 +34,6 @@ class authorizatize(object):
     rdm = random.randint(0, 999999999)
     plain_text = 'a=' + self.app_id + '&k=' + self.secret_id + '&e=' + str(expired) + '&t=' + str(now) + '&r=' + str(rdm) + '&f=' + fileid + '&b=' + self.bucket  
     signature = hmac.new(self.secret_key, plain_text, hashlib.sha1).digest() + plain_text
-    print signature
     return base64.b64encode(signature)
 
   def sign_once(self, fileid):
@@ -45,7 +44,7 @@ class authorizatize(object):
 
 class qcloud_cos(object):
   api_base = 'http://web.file.myqcloud.com/files/v1/'
-  timeout = 10
+  timeout = 60
 
   def __init__(self, app_id, secret_id, secret_key, bucket):
     self.app_id = str(app_id)
@@ -161,7 +160,7 @@ class qcloud_git_annex_remote(object):
   supported_cmds = ['initremote', 'prepare', 'transfer', 'checkpresent', 'remove', 'getcost' ]
 
   def send(self, *args):
-    print(' '.join(map(str, args)))
+    sys.stdout.write(' '.join(map(str, args)) + '\n')
     sys.stdout.flush()
 
   def debug(self, *args):
@@ -178,7 +177,8 @@ class qcloud_git_annex_remote(object):
     return self.dirhash(key) + key
 
   def init_qcloud_cos(self):
-    credentials = os.environ.get('QCLOUD_CREDENTIALS')
+    # credentials = os.environ.get('QCLOUD_CREDENTIALS')
+    credentials = '~/.qcloud'
     if not credentials:
       raise Exception('credentials environment variable QCLOUD_CREDENTIALS not found')
     credentials = os.path.expanduser(credentials)
@@ -205,13 +205,13 @@ class qcloud_git_annex_remote(object):
     if direction == 'STORE':
       self.qcloud_cos.upload(local_path, server_path)
     else: 
-      self.qcloud_cos.download(local_path, local_path)
+      self.qcloud_cos.download(local_path, server_path)
   
   @report([1], 'CHECKPRESENT-UNKNOWN')
   def checkpresent(self, key):
     server_path = self.from_key(key)
     r = self.qcloud_cos.present(server_path)
-    self.send('CHECKPRESENT-' + ('SUCCESS' if r else 'FAILURE'))
+    self.send('CHECKPRESENT-' + ('SUCCESS' if r else 'FAILURE'), key)
   
   @report([1])
   def remove(self, key):
@@ -223,7 +223,11 @@ class qcloud_git_annex_remote(object):
     
   def main(self):
     self.send('VERSION 1')
-    for line in sys.stdin:
+    # TODO: fix weired read bug
+    while True:
+      line = sys.stdin.readline()
+      if sys.stdin.closed:
+        break
       splices = line.split()
       cmd = splices[0].lower()
       args = splices[1:]
