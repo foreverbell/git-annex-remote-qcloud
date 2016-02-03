@@ -76,7 +76,8 @@ class qcloud_cos(object):
     return qcloud_cos.api_base + self.app_id + '/' + self.bucket + '/' + path
 
   def send(self, method, url, **args):
-    assert method in ['POST', 'GET'], "unknown method " + method
+    method = method.upper()
+    assert method in ['POST', 'GET'], 'unknown method ' + method
     if method == 'POST':
       r = self.http_session.post(url, **args)
     else:
@@ -169,7 +170,7 @@ class qcloud_git_annex_remote(object):
   def dirhash(self, key):
     self.send("DIRHASH", key)
     response = sys.stdin.readline().strip().split()
-    assert len(response) == 2 and response[0] == 'VALUE', "unknown response to DIRHASH"
+    assert len(response) == 2 and response[0] == 'VALUE', 'unknown response to DIRHASH'
     return response[1]
   
   def from_key(self, key):
@@ -227,7 +228,7 @@ class qcloud_git_annex_remote(object):
       cmd = splices[0].lower()
       args = splices[1:]
       if cmd not in self.supported_cmds:
-        self.send("UNSUPPORTED-REQUEST") 
+        self.send('UNSUPPORTED-REQUEST') 
         continue
       getattr(self, cmd)(*args)
 
