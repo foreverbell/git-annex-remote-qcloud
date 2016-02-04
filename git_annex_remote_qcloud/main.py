@@ -241,5 +241,8 @@ class qcloud_git_annex_remote(object):
         continue
       getattr(self, cmd)(*args)
 
-if __name__ == '__main__':
+def main():
   qcloud_git_annex_remote().main()
+
+if __name__ == '__main__':
+  main()
