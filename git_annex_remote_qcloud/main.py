@@ -17,6 +17,13 @@ import base64, hmac, hashlib
 import platform
 import ConfigParser
 
+class AnnexException(Exception):
+  def __init__(self, value):
+    self.value = value
+
+  def __str__(self):
+    return self.value
+
 class COSException(Exception):
   def __init__(self, code, message):
     self.code = code
@@ -52,11 +59,12 @@ class qcloud_cos(object):
   expire = 300 # signature expire time = 5 minutes
   timeout = 10 # http connection timeout = 10 seconds
 
-  def __init__(self, app_id, secret_id, secret_key, bucket):
+  def __init__(self, app_id, secret_id, secret_key, bucket, folder):
     self.app_id = str(app_id)
     self.secret_id = secret_id
     self.secret_key = secret_key
     self.bucket = bucket
+    self.folder = folder
     self.http_session = requests.session()
 
   def sha1file(self, filename, block=4*1024*1024):
@@ -82,11 +90,12 @@ class qcloud_cos(object):
 
   def send(self, method, url, **args):
     method = method.upper()
-    assert method in ['POST', 'GET'], 'unknown method ' + method
     if method == 'POST':
       r = self.http_session.post(url, **args)
-    else:
+    elif method == 'GET':
       r = self.http_session.get(url, **args)
+    else:
+      assert False, 'unknown method ' + method
     json = r.json()
     if 'code' in json and json['code'] < 0:
       raise COSException(json['code'], json['message'].encode('utf-8'))
@@ -104,7 +113,7 @@ class qcloud_cos(object):
   def upload(self, local_path, server_path):
     auth = authorizatize(self.app_id, self.secret_id, self.secret_key, self.bucket)
     if not os.path.exists(local_path):
-      raise IOError(local_path + ' file not exists')
+      raise AnnexException(local_path + ' file not exists')
     server_path = urllib.quote(server_path)
     url = self.mk_url(server_path)
     signature = auth.sign_more(qcloud_cos.expire)
@@ -153,7 +162,7 @@ def report(indices=[], eheader=None):
         for line in traceback.format_exc().splitlines():
           args[0].debug(line)
         args[0].send(eheader or (f.__name__.upper() + '-FAILURE'), *([args[i] for i in indices] + ['. '.join(str(e).splitlines())]))
-        if isinstance(e, (COSException, requests.RequestException, IOError)):
+        if isinstance(e, (AnnexException, COSException, requests.RequestException, IOError)):
           return
         else:
           raise
@@ -170,22 +179,33 @@ class qcloud_git_annex_remote(object):
     sys.stdout.write(' '.join(map(str, args)) + '\n')
     sys.stdout.flush()
 
+  def recv(self):
+    return sys.stdin.readline().strip()
+
   def debug(self, *args):
     self.send('DEBUG', *args)
 
+  def getconfig(self, key):
+    self.send('GETCONFIG', key)
+    line = self.recv()
+    if not line.startswith('VALUE'):
+      raise AnnexException('invalid GETCONFIG response')
+    return line[5:].lstrip()
+
   def dirhash(self, key):
     self.send('DIRHASH', key)
-    response = sys.stdin.readline().strip().split()
-    assert len(response) == 2 and response[0] == 'VALUE', 'unknown response to DIRHASH'
-    return response[1]
+    line = self.recv()
+    if not line.startswith('VALUE'):
+      raise AnnexException('invalid DIRHASH response')
+    return line[5:].lstrip()
   
   def from_key(self, key):
-    return self.dirhash(key) + key
+    return self.qcloud_cos.folder + '/' + self.dirhash(key) + key
 
   def init_qcloud_cos(self):
     credentials = os.environ.get('QCLOUD_CREDENTIALS')
     if not credentials:
-      raise IOError('credentials environment variable QCLOUD_CREDENTIALS not found')
+      raise AnnexException('credentials environment variable QCLOUD_CREDENTIALS not found')
     credentials = os.path.expanduser(credentials)
     config = ConfigParser.RawConfigParser()
     config.readfp(StringIO.StringIO('[default]\n' + open(credentials, 'r').read()))
@@ -193,7 +213,10 @@ class qcloud_git_annex_remote(object):
     secret_id = config.get('default', 'secret_id')
     secret_key = config.get('default', 'secret_key')
     bucket = config.get('default', 'bucket')
-    self.qcloud_cos = qcloud_cos(app_id, secret_id, secret_key, bucket)
+    folder = self.getconfig('folder').rstrip('/')
+    if not folder:
+      raise AnnexException('empty folder option or not specified')
+    self.qcloud_cos = qcloud_cos(app_id, secret_id, secret_key, bucket, folder)
 
   @report()
   def initremote(self):
@@ -207,12 +230,13 @@ class qcloud_git_annex_remote(object):
   @report([1, 2])
   def transfer(self, direction, key, local_path):
     server_path = self.from_key(key)
-    assert direction in ['STORE', 'RETRIEVE'], 'unknown direction of TRANSFER'
     if direction == 'STORE':
       self.qcloud_cos.upload(local_path, server_path)
-    else: 
+    elif direction == 'RETRIEVE':
       self.qcloud_cos.download(local_path, server_path)
-  
+    else:
+      assert False, 'unknown direction ' + direction + ' of TRANSFER'
+
   @report([1], 'CHECKPRESENT-UNKNOWN')
   def checkpresent(self, key):
     server_path = self.from_key(key)

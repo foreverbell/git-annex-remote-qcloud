@@ -19,13 +19,13 @@ $ cd git-annex-remote-qcloud && pip install --user .
 
 ```bash
 $ mkdir playground && cd playground
-$ export QCLOUD_CREDENTIALS = '~/.qcloud'
+$ export QCLOUD_CREDENTIALS='~/.qcloud'
 $ git init
 $ git annex init
-$ git annex initremote qcloud type=external externaltype=qcloud encryption=none
+$ git annex initremote qcloud type=external externaltype=qcloud encryption=none folder=music
 $ git annex add "Blowing in the Wind.m4a"
-$ git annex move . --to=qcloud # upload to qcloud and delete local copy
-$ git annex get . --from=qcloud # download from qcloud
+$ git annex move . --to=qcloud   # upload to qcloud and delete local copy
+$ git annex get . --from=qcloud  # download from qcloud
 ```
 
 `~/.qcloud` 为配置文件，样例如下 (注意: qcloud 不提供建立 bucket 的 API，所以 bucket 需事先建好)。
@@ -36,6 +36,3 @@ secret_id = you_secret_id
 secret_key = B10wing_in_tHe_winD
 bucket = annex
 ```
-## 免责声明
-
-使用本脚本造成的数据丢失，一概**不负责** :)
