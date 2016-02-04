@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# git-annex external special remote protocol for qcloud (Tencent Cloud).
+# References:
+# 1. https://git-annex.branchable.com/design/external_special_remote_protocol/
+# 2. https://github.com/tochev/git-annex-remote-pcloud
+# 3. https://github.com/tencentyun/cos-python-sdk
+
 import functools
 import requests, urllib
 import os, os.path, sys, traceback
@@ -17,8 +23,7 @@ class COSException(Exception):
     self.message = message
 
   def __str__(self):
-    # TODO: unicode issue.
-    return repr('%d=%s' % (self.code, self.message))
+    return 'qcloud cos exception %d = %s.' % (-self.code, self.message)
 
 class authorizatize(object):
   def __init__(self, app_id, secret_id, secret_key, bucket):
@@ -98,8 +103,8 @@ class qcloud_cos(object):
 
   def upload(self, local_path, server_path):
     auth = authorizatize(self.app_id, self.secret_id, self.secret_key, self.bucket)
-    # TODO: raise
-    assert os.path.exists(local_path), 'file not exists'
+    if not os.path.exists(local_path):
+      raise IOError(local_path + ' file not exists')
     server_path = urllib.quote(server_path)
     url = self.mk_url(server_path)
     signature = auth.sign_more(qcloud_cos.expire)
@@ -147,7 +152,7 @@ def report(indices=[], eheader=None):
       except Exception as e:
         for line in traceback.format_exc().splitlines():
           args[0].debug(line)
-        args[0].send(eheader or (f.__name__.upper() + '-FAILURE'), *([args[i] for i in indices] + ['  '.join(str(e).splitlines())]))
+        args[0].send(eheader or (f.__name__.upper() + '-FAILURE'), *([args[i] for i in indices] + ['. '.join(str(e).splitlines())]))
         if isinstance(e, (COSException, requests.RequestException, IOError)):
           return
         else:
@@ -175,14 +180,12 @@ class qcloud_git_annex_remote(object):
     return response[1]
   
   def from_key(self, key):
-    # TODO: debug
     return self.dirhash(key) + key
 
   def init_qcloud_cos(self):
-    # credentials = os.environ.get('QCLOUD_CREDENTIALS')
-    credentials = '~/.qcloud'
+    credentials = os.environ.get('QCLOUD_CREDENTIALS')
     if not credentials:
-      raise Exception('credentials environment variable QCLOUD_CREDENTIALS not found')
+      raise IOError('credentials environment variable QCLOUD_CREDENTIALS not found')
     credentials = os.path.expanduser(credentials)
     config = ConfigParser.RawConfigParser()
     config.readfp(StringIO.StringIO('[default]\n' + open(credentials, 'r').read()))
@@ -194,8 +197,8 @@ class qcloud_git_annex_remote(object):
 
   @report()
   def initremote(self):
+    # TODO: do some stuffs like create bucket, but this operation seems not to be supported by qcloud.
     self.init_qcloud_cos()
-    # TODO: do some stuffs like create bucket
 
   @report()
   def prepare(self):
