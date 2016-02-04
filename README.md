@@ -23,7 +23,7 @@ $ export QCLOUD_CREDENTIALS = '~/.qcloud'
 $ git init
 $ git annex init
 $ git annex initremote qcloud type=external externaltype=qcloud encryption=none
-$ git annex add "Blow in the Wind.m4a"
+$ git annex add "Blowing in the Wind.m4a"
 $ git annex move . --to=qcloud # upload to qcloud and delete local copy
 $ git annex get . --from=qcloud # download from qcloud
 ```
@@ -33,7 +33,7 @@ $ git annex get . --from=qcloud # download from qcloud
 ```
 app_id = 23333333
 secret_id = you_secret_id
-secret_key = B10w_in_the_winD
+secret_key = B10wing_in_tHe_winD
 bucket = annex
 ```
 ## 免责声明
