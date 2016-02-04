@@ -11,8 +11,7 @@ Since the potential users are all Chinese, so the guide is written in Chinese.
 ## 安装
 
 ```bash
-$ git clone git@github.com:foreverbell/git-annex-remote-qcloud.git
-$ cd git-annex-remote-qcloud && pip install --user .
+$ pip install --user git+https://github.com/foreverbell/git-annex-remote-qcloud
 ```
 
 ## 使用说明
