@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='git-annex-remote-qcloud',
-      version='0.1.0',
+      version='0.1.1',
       author='foreverbell',
       author_email='dql.foreverbell@gmail.com',
       url='https://github.com/foreverbell/git-annex-remote-qcloud',

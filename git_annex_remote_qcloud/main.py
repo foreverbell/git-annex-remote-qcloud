@@ -25,6 +25,39 @@ class COSException(Exception):
   def __str__(self):
     return 'qcloud cos exception %d = %s.' % (-self.code, self.message)
 
+def report(indices=[], eheader=None):
+  def decorator(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+      try:
+        f(*args, **kwargs)
+      except Exception as e:
+        for line in traceback.format_exc().splitlines():
+          args[0].debug(line)
+        args[0].send(eheader or (f.__name__.upper() + '-FAILURE'), *([args[i] for i in indices] + ['. '.join(str(e).splitlines())]))
+        if isinstance(e, (AnnexException, COSException, requests.RequestException, IOError)):
+          return
+        else:
+          raise
+      else:
+        if not eheader:
+          args[0].send(f.__name__.upper() + '-SUCCESS', *[args[i] for i in indices])
+    return wrapper
+  return decorator
+
+def check(f, ecodes, on_catch=None):
+  '''if f raises COSException with code in ecodes, eat it as if nothing has happened.'''
+  def wrapper(*args, **kwargs):
+    try:
+      return f(*args, **kwargs)
+    except COSException as e:
+      if e.code in ecodes:
+        if on_catch:
+          on_catch()
+      else:
+        raise
+  return wrapper
+
 class authorizatize(object):
   def __init__(self, app_id, secret_id, secret_key, bucket):
     self.app_id = str(app_id)
@@ -125,15 +158,11 @@ class qcloud_cos(object):
   def present(self, server_path):
     auth = authorizatize(self.app_id, self.secret_id, self.secret_key, self.bucket)
     server_path = urllib.quote(server_path)
-    is_present = True
-    try:
-      response = self.__stat(auth, server_path)
-    except COSException as e:
-      if e.code != -166: # ERROR_CMD_COS_INDEX_ERROR = -166
-        raise
-      else:
-        is_present = False
-    return is_present
+    is_present = [True]
+    def not_in(x): 
+      x[0] = False
+    response = check(self.__stat, [-166], functools.partial(not_in, is_present))(auth, server_path)
+    return is_present[0]
   
   def delete(self, server_path):
     auth = authorizatize(self.app_id, self.secret_id, self.secret_key, self.bucket)
@@ -144,26 +173,6 @@ class qcloud_cos(object):
         headers=self.mk_headers(signature), 
         data=json.dumps({'op': 'delete'}),
         timeout=qcloud_cos.timeout)
-
-def report(indices=[], eheader=None):
-  def decorator(f):
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-      try:
-        f(*args, **kwargs)
-      except Exception as e:
-        for line in traceback.format_exc().splitlines():
-          args[0].debug(line)
-        args[0].send(eheader or (f.__name__.upper() + '-FAILURE'), *([args[i] for i in indices] + ['. '.join(str(e).splitlines())]))
-        if isinstance(e, (AnnexException, COSException, requests.RequestException, IOError)):
-          return
-        else:
-          raise
-      else:
-        if not eheader:
-          args[0].send(f.__name__.upper() + '-SUCCESS', *[args[i] for i in indices])
-    return wrapper
-  return decorator
 
 class qcloud_git_annex_remote(object):
   supported_cmds = ['initremote', 'prepare', 'transfer', 'checkpresent', 'remove', 'getcost' ]
@@ -223,10 +232,12 @@ class qcloud_git_annex_remote(object):
   @report([1, 2])
   def transfer(self, direction, key, local_path):
     server_path = self.from_key(key)
+    upload = check(self.qcloud_cos.upload, [-4018])
+    download = self.qcloud_cos.download
     if direction == 'STORE':
-      self.qcloud_cos.upload(local_path, server_path)
+      upload(local_path, server_path)
     elif direction == 'RETRIEVE':
-      self.qcloud_cos.download(local_path, server_path)
+      download(local_path, server_path)
     else:
       assert False, 'unknown direction ' + direction + ' of TRANSFER'
 
@@ -239,7 +250,7 @@ class qcloud_git_annex_remote(object):
   @report([1])
   def remove(self, key):
     server_path = self.from_key(key)
-    self.qcloud_cos.delete(server_path)
+    check(self.qcloud_cos.delete, [-166])(server_path)
 
   def getcost(self): 
     self.send('COST', 200)

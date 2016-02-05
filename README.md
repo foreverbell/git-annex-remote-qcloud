@@ -36,6 +36,18 @@ secret_key = B10wing_in_tHe_winD
 bucket = annex
 ```
 
+## 单元测试
+
+确保 `git-annex` 升到足够新的版本有 `testremote` 功能。
+
+```bash
+$ .. (omitted) ..
+$ git annex initremote qcloud type=external externaltype=qcloud encryption=none folder=test
+$ git annex testremote qcloud
+```
+
+注意测试比较花时间，如果没耐心可以在最后一个命令后面加参数 `--size=16Bytes`。
+
 ## References
 
 1. https://git-annex.branchable.com/design/external_special_remote_protocol
