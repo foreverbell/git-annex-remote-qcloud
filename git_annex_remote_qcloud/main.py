@@ -1,11 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# git-annex external special remote protocol for qcloud (Tencent Cloud).
-# References:
-# 1. https://git-annex.branchable.com/design/external_special_remote_protocol/
-# 2. https://github.com/tochev/git-annex-remote-pcloud
-# 3. https://github.com/tencentyun/cos-python-sdk
 
 import functools
 import requests, urllib

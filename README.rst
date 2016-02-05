@@ -35,3 +35,9 @@ secret_id = you_secret_id
 secret_key = B10wing_in_tHe_winD
 bucket = annex
 ```
+
+## References
+
+1. https://git-annex.branchable.com/design/external_special_remote_protocol
+2. https://github.com/tochev/git-annex-remote-pcloud
+3. https://github.com/tencentyun/cos-python-sdk
