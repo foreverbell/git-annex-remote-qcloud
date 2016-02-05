@@ -49,7 +49,7 @@ def check(f, ecodes, on_catch=None):
   '''if f raises COSException with code in ecodes, eat it as if nothing has happened.'''
   def wrapper(*args, **kwargs):
     try:
-      return f(*args, **kwargs)
+      f(*args, **kwargs)
     except COSException as e:
       if e.code in ecodes:
         if on_catch:
@@ -161,7 +161,7 @@ class qcloud_cos(object):
     is_present = [True]
     def not_in(x): 
       x[0] = False
-    response = check(self.__stat, [-166], functools.partial(not_in, is_present))(auth, server_path)
+    check(self.__stat, [-166], functools.partial(not_in, is_present))(auth, server_path)
     return is_present[0]
   
   def delete(self, server_path):
