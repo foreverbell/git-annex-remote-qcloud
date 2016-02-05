@@ -1,1 +1,4 @@
 *.swp
+
+dist/
+git_annex_remote_qcloud.egg-info/
