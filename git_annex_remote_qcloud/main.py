@@ -175,7 +175,7 @@ class qcloud_cos(object):
         timeout=qcloud_cos.timeout)
 
 class qcloud_git_annex_remote(object):
-  supported_cmds = ['initremote', 'prepare', 'transfer', 'checkpresent', 'remove', 'getcost' ]
+  supported_cmds = { 'initremote': 0, 'prepare': 0, 'transfer': 3, 'checkpresent': 1, 'remove': 1, 'getcost': 0 }
 
   def send(self, *args):
     sys.stdout.write(' '.join(map(str, args)) + '\n')
@@ -231,6 +231,7 @@ class qcloud_git_annex_remote(object):
   
   @report([1, 2])
   def transfer(self, direction, key, local_path):
+    local_path = local_path.decode('utf-8') # convert to unicode
     server_path = self.from_key(key)
     upload = check(self.qcloud_cos.upload, [-4018])
     download = self.qcloud_cos.download
@@ -258,15 +259,14 @@ class qcloud_git_annex_remote(object):
   def main(self):
     self.send('VERSION 1')
     while True:
-      line = sys.stdin.readline()
+      line = self.recv()
       if not line:
         break
-      splices = line.split()
-      cmd = splices[0].lower()
-      args = splices[1:]
+      cmd = line.split()[0].lower()
       if cmd not in self.supported_cmds:
         self.send('UNSUPPORTED-REQUEST') 
         continue
+      args = line.split(None, self.supported_cmds[cmd])[1:]
       getattr(self, cmd)(*args)
 
 def main():
