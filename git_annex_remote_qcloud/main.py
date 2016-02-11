@@ -82,8 +82,8 @@ class authorizatize(object):
 
 class qcloud_cos(object):
   api_base = 'http://web.file.myqcloud.com/files/v1/'
-  expire = 300 # signature expire time = 5 minutes
-  timeout = 10 # http connection timeout = 10 seconds
+  expire = 60*30 # signature expire time = 30 minutes
+  timeout = 10   # http connection timeout = 10 seconds
 
   def __init__(self, app_id, secret_id, secret_key, bucket, folder):
     self.app_id = str(app_id)
@@ -116,13 +116,15 @@ class qcloud_cos(object):
 
   def send(self, method, url, **args):
     method = method.upper()
-    if method == 'POST':
-      r = self.http_session.post(url, **args)
-    elif method == 'GET':
-      r = self.http_session.get(url, **args)
-    else:
-      assert False, 'unknown method ' + method
-    json = r.json()
+    assert method in ('POST', 'GET'), 'unknown method ' + method
+    try:
+      if method == 'POST':
+        r = self.http_session.post(url, **args)
+      elif method == 'GET':
+        r = self.http_session.get(url, **args)
+      json = r.json()
+    except Exception as e:
+      raise AnnexException('network error')
     if 'code' in json and json['code'] < 0:
       raise COSException(json['code'], json['message'].encode('utf-8'))
     r.raise_for_status()
@@ -146,7 +148,7 @@ class qcloud_cos(object):
     self.send('POST', url, 
         headers=self.mk_headers(signature, False), 
         files={'op': 'upload', 'filecontent': open(local_path, 'rb'), 'sha': self.sha1file(local_path)},
-        timeout=qcloud_cos.timeout)
+        timeout=(qcloud_cos.timeout, qcloud_cos.expire))
 
   def download(self, local_path, server_path):
     auth = authorizatize(self.app_id, self.secret_id, self.secret_key, self.bucket)
@@ -235,12 +237,11 @@ class qcloud_git_annex_remote(object):
     server_path = self.from_key(key)
     upload = check(self.qcloud_cos.upload, [-4018])
     download = self.qcloud_cos.download
+    assert direction in ('STORE', 'RETRIEVE'), 'unknown direction ' + direction + ' of TRANSFER'
     if direction == 'STORE':
       upload(local_path, server_path)
     elif direction == 'RETRIEVE':
       download(local_path, server_path)
-    else:
-      assert False, 'unknown direction ' + direction + ' of TRANSFER'
 
   @report([1], 'CHECKPRESENT-UNKNOWN')
   def checkpresent(self, key):
